@@ -1,18 +1,23 @@
 name: VIGLESS picks heartbeat
-# Builds and locks the day's AI picks on a schedule so the record fills in even with no visitors.
+# Builds and locks the day's AI picks so the record fills in even with no visitors.
+# GitHub only fires scheduled runs every 2-4 hours in practice, so each run stays up for
+# about 5h50m and pings every 8 minutes. A new run replaces the old one, so there is no gap.
 on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+concurrency:
+  group: heartbeat
+  cancel-in-progress: true
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 355
     steps:
-      - name: Build picks
+      - name: Keep picks building and locking
         run: |
-          for i in 1 2 3; do
-            if curl -fsS -m 280 https://vigless.pplx.app/port/5000/api/cron/picks; then exit 0; fi
-            sleep 20
+          end=$(( $(date +%s) + 350*60 ))
+          while [ $(date +%s) -lt $end ]; do
+            curl -fsS -m 280 -o /dev/null -w "$(date -u +%H:%M) %{http_code}\n" https://vigless.pplx.app/port/5000/api/cron/picks || echo "$(date -u +%H:%M) ping failed"
+            sleep 480
           done
-          exit 1
