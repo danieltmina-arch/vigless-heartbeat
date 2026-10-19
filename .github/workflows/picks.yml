@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+permissions:
+  actions: write
+  contents: read
 concurrency:
   group: heartbeat
   cancel-in-progress: true
@@ -21,3 +24,8 @@ jobs:
             curl -fsS -m 280 -o /dev/null -w "$(date -u +%H:%M) %{http_code}\n" https://vigless.pplx.app/port/5000/api/cron/picks || echo "$(date -u +%H:%M) ping failed"
             sleep 480
           done
+      - name: Start the next run (no gap between runs)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run picks.yml -R ${{ github.repository }}
